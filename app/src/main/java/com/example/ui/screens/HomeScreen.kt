@@ -2,9 +2,14 @@ package com.example.ui.screens
 
 import android.content.Intent
 import android.provider.Settings
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -14,6 +19,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -27,6 +33,7 @@ import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DirectionsBus
 import androidx.compose.material.icons.filled.DirectionsSubway
+import androidx.compose.material.icons.filled.LocationOff
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.NearMe
 import androidx.compose.material.icons.filled.Search
@@ -87,6 +94,8 @@ fun HomeScreen(
     language: AppLanguage,
     routeData: RouteData? = null,
     isNetworkAvailable: Boolean = true,
+    isSearching: Boolean = false,
+    centerOnLocationTrigger: Int = 0,
     showBatteryOptimizationPopup: Boolean = false,
     onDismissBatteryPopup: () -> Unit = {},
     onRequestBatteryOptimization: () -> Unit = {},
@@ -99,9 +108,21 @@ fun HomeScreen(
 ) {
     val context = LocalContext.current
     var isSearchExpanded by remember { mutableStateOf(false) }
+    var isSearchFocused by remember { mutableStateOf(false) }
 
     val keyboardController = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
     val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
+
+    val clearSearchFocus = {
+        keyboardController?.hide()
+        focusManager.clearFocus()
+        isSearchFocused = false
+        isSearchExpanded = false
+    }
+
+    BackHandler(enabled = isSearchFocused || isSearchExpanded || searchQuery.isNotEmpty()) {
+        clearSearchFocus()
+    }
 
     if (showBatteryOptimizationPopup) {
         BatteryOptimizationDialog(
@@ -145,22 +166,22 @@ fun HomeScreen(
                 routeData = routeData,
                 language = language,
                 bottomControlPadding = bottomControlPadding,
+                centerOnLocationTrigger = centerOnLocationTrigger,
                 onMapTap = { lat, lng ->
-                    keyboardController?.hide()
-                    focusManager.clearFocus()
+                    clearSearchFocus()
                     searchPreviewDestination = null
                     focusedLocation = null
                     onMapTap(lat, lng)
                 },
                 onSelectDestination = onDestinationSelect,
                 onDeselectDestination = {
-                    keyboardController?.hide()
-                    focusManager.clearFocus()
+                    clearSearchFocus()
                     searchPreviewDestination = null
                     focusedLocation = null
                     onDeselectDestination()
                 },
-                onRequestCurrentLocation = onRequestCurrentLocation
+                onRequestCurrentLocation = onRequestCurrentLocation,
+                onMapInteracted = clearSearchFocus
             )
         }
 
@@ -247,6 +268,12 @@ fun HomeScreen(
                         },
                         modifier = Modifier
                             .fillMaxWidth()
+                            .onFocusChanged { focusState ->
+                                isSearchFocused = focusState.isFocused
+                                if (focusState.isFocused) {
+                                    isSearchExpanded = true
+                                }
+                            }
                             .testTag("destination_search_input"),
                         placeholder = {
                             Text(
@@ -262,11 +289,19 @@ fun HomeScreen(
                             )
                         },
                         trailingIcon = {
-                            if (searchQuery.isNotEmpty()) {
+                            if (isSearching) {
+                                androidx.compose.material3.CircularProgressIndicator(
+                                    modifier = Modifier
+                                        .size(24.dp)
+                                        .padding(3.dp),
+                                    strokeWidth = 2.dp,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            } else if (searchQuery.isNotEmpty()) {
                                 IconButton(
                                     onClick = {
                                         onSearchQueryChange("")
-                                        isSearchExpanded = false
+                                        clearSearchFocus()
                                     },
                                     modifier = Modifier.testTag("clear_search_button")
                                 ) {
@@ -275,6 +310,13 @@ fun HomeScreen(
                             }
                         },
                         singleLine = true,
+                        keyboardOptions = KeyboardOptions(
+                            imeAction = ImeAction.Search
+                        ),
+                        keyboardActions = KeyboardActions(
+                            onSearch = { clearSearchFocus() },
+                            onDone = { clearSearchFocus() }
+                        ),
                         colors = TextFieldDefaults.colors(
                             focusedContainerColor = MaterialTheme.colorScheme.surface,
                             unfocusedContainerColor = MaterialTheme.colorScheme.surface,
@@ -296,22 +338,53 @@ fun HomeScreen(
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(top = 0.dp),
-                    shape = RoundedCornerShape(0.dp),
+                        .heightIn(max = 240.dp),
+                    shape = RoundedCornerShape(bottomStart = 16.dp, bottomEnd = 16.dp),
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                     elevation = CardDefaults.cardElevation(8.dp)
                 ) {
-                    LazyColumn(modifier = Modifier.padding(vertical = 4.dp).height(240.dp)) {
-                        items(filteredResults) { dest ->
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = 240.dp)
+                            .padding(vertical = 4.dp)
+                    ) {
+                        if (filteredResults.isEmpty() && !isSearching && searchQuery.isNotBlank()) {
+                            item {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 16.dp, vertical = 20.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.Center
+                                ) {
+                                    Icon(
+                                        Icons.Default.LocationOff,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.error,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(10.dp))
+                                    Text(
+                                        text = if (language == AppLanguage.BANGLA)
+                                            "আপনার গন্তব্য পাওয়া যায় নি"
+                                        else
+                                            "Your destination was not found",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontWeight = FontWeight.Medium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                        } else {
+                            items(filteredResults) { dest ->
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .clickable {
-                                        keyboardController?.hide()
-                                        focusManager.clearFocus()
+                                        clearSearchFocus()
                                         focusedLocation = GeoPoint(dest.latitude, dest.longitude)
                                         searchPreviewDestination = dest
-                                        isSearchExpanded = false
                                         onSearchQueryChange("")
                                     }
                                     .padding(horizontal = 16.dp, vertical = 12.dp)
@@ -352,6 +425,7 @@ fun HomeScreen(
                 }
             }
         }
+    }
 
         // Bottom Destination Card & Action Bar
         Column(

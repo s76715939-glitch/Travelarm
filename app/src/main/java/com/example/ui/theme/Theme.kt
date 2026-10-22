@@ -87,9 +87,19 @@ fun MyApplicationTheme(
         }
     }
 
-    MaterialTheme(
-        colorScheme = colorScheme,
-        typography = Typography,
-        content = content
-    )
+    val currentDensity = androidx.compose.ui.platform.LocalDensity.current
+    val clampedDensity = androidx.compose.runtime.remember(currentDensity) {
+        androidx.compose.ui.unit.Density(
+            density = currentDensity.density,
+            fontScale = currentDensity.fontScale.coerceIn(0.85f, 1.10f)
+        )
+    }
+
+    androidx.compose.runtime.CompositionLocalProvider(androidx.compose.ui.platform.LocalDensity provides clampedDensity) {
+        MaterialTheme(
+            colorScheme = colorScheme,
+            typography = Typography,
+            content = content
+        )
+    }
 }

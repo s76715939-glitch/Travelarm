@@ -49,38 +49,39 @@ class UpdateManager(private val context: Context) {
                 .header("Cache-Control", "no-cache")
                 .build()
 
-            val response = httpClient.newCall(request).execute()
-            if (!response.isSuccessful) {
-                Log.w(TAG, "Update check failed with HTTP ${response.code}")
-                return@withContext UpdateStatus.Error("সার্ভার থেকে আপডেটের তথ্য পাওয়া যায়নি (${response.code})", checkedManually)
-            }
+            httpClient.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) {
+                    Log.w(TAG, "Update check failed with HTTP ${response.code}")
+                    return@withContext UpdateStatus.Error("সার্ভার থেকে আপডেটের তথ্য পাওয়া যায়নি (${response.code})", checkedManually)
+                }
 
-            val responseBody = response.body?.string() ?: return@withContext UpdateStatus.Error("ফাঁকা রেসপন্স পাওয়া গেছে", checkedManually)
-            val json = JSONObject(responseBody)
+                val responseBody = response.body?.string() ?: return@withContext UpdateStatus.Error("ফাঁকা রেসপন্স পাওয়া গেছে", checkedManually)
+                val json = JSONObject(responseBody)
 
-            val latestVersionCode = json.optInt("latestVersionCode", BuildConfig.VERSION_CODE)
-            val latestVersionName = json.optString("latestVersionName", BuildConfig.VERSION_NAME)
-            val apkUrl = json.optString("apkUrl", "")
-            val defaultNotes = json.optString("releaseNotes", "নতুন সংস্করণ উপলব্ধ। / New version available.")
-            val releaseNotesBn = json.optString("releaseNotesBn", defaultNotes)
-            val releaseNotesEn = json.optString("releaseNotesEn", defaultNotes)
-            val forceUpdate = json.optBoolean("forceUpdate", false)
+                val latestVersionCode = json.optInt("latestVersionCode", BuildConfig.VERSION_CODE)
+                val latestVersionName = json.optString("latestVersionName", BuildConfig.VERSION_NAME)
+                val apkUrl = json.optString("apkUrl", "")
+                val defaultNotes = json.optString("releaseNotes", "নতুন সংস্করণ উপলব্ধ। / New version available.")
+                val releaseNotesBn = json.optString("releaseNotesBn", defaultNotes)
+                val releaseNotesEn = json.optString("releaseNotesEn", defaultNotes)
+                val forceUpdate = json.optBoolean("forceUpdate", false)
 
-            val currentVersionCode = BuildConfig.VERSION_CODE
-            Log.d(TAG, "Current versionCode: $currentVersionCode, Remote versionCode: $latestVersionCode")
+                val currentVersionCode = BuildConfig.VERSION_CODE
+                Log.d(TAG, "Current versionCode: $currentVersionCode, Remote versionCode: $latestVersionCode")
 
-            if (latestVersionCode > currentVersionCode && apkUrl.isNotBlank()) {
-                val updateInfo = AppUpdateInfo(
-                    latestVersionCode = latestVersionCode,
-                    latestVersionName = latestVersionName,
-                    apkUrl = apkUrl,
-                    releaseNotesBn = releaseNotesBn,
-                    releaseNotesEn = releaseNotesEn,
-                    forceUpdate = forceUpdate
-                )
-                UpdateStatus.UpdateAvailable(updateInfo)
-            } else {
-                UpdateStatus.UpToDate(checkedManually)
+                if (latestVersionCode > currentVersionCode && apkUrl.isNotBlank()) {
+                    val updateInfo = AppUpdateInfo(
+                        latestVersionCode = latestVersionCode,
+                        latestVersionName = latestVersionName,
+                        apkUrl = apkUrl,
+                        releaseNotesBn = releaseNotesBn,
+                        releaseNotesEn = releaseNotesEn,
+                        forceUpdate = forceUpdate
+                    )
+                    UpdateStatus.UpdateAvailable(updateInfo)
+                } else {
+                    UpdateStatus.UpToDate(checkedManually)
+                }
             }
         } catch (e: Exception) {
             Log.e(TAG, "Exception checking update", e)
@@ -175,11 +176,15 @@ class UpdateManager(private val context: Context) {
             // On Android 8.0+ check unknown sources permission if needed
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 if (!context.packageManager.canRequestPackageInstalls()) {
-                    val settingsIntent = Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES).apply {
-                        data = Uri.parse("package:${context.packageName}")
-                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    try {
+                        val settingsIntent = Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES).apply {
+                            data = Uri.parse("package:${context.packageName}")
+                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        }
+                        context.startActivity(settingsIntent)
+                    } catch (e: Exception) {
+                        Log.w(TAG, "Cannot launch MANAGE_UNKNOWN_APP_SOURCES settings", e)
                     }
-                    context.startActivity(settingsIntent)
                 }
             }
 

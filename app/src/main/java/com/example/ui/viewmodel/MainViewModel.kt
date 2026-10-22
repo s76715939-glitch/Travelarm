@@ -52,6 +52,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private var searchJob: Job? = null
     private var routeFetchJob: Job? = null
     private var downloadJob: Job? = null
+    private var updateCheckJob: Job? = null
     private val testAlarmEngine: AlarmEngine by lazy { AlarmEngine(application) }
 
     val journeyState: StateFlow<ActiveJourneyState> = LocationForegroundService.journeyState
@@ -70,6 +71,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _searchQuery = MutableStateFlow("")
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
+
+    private val _isSearching = MutableStateFlow(false)
+    val isSearching: StateFlow<Boolean> = _isSearching.asStateFlow()
 
     private val _searchResults = MutableStateFlow<List<Destination>>(BangladeshTransitHubs.hubs)
     val searchResults: StateFlow<List<Destination>> = _searchResults.asStateFlow()
@@ -212,6 +216,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val trimmed = query.trim()
         if (trimmed.isBlank()) {
             _searchResults.value = BangladeshTransitHubs.hubs
+            _isSearching.value = false
+            searchJob?.cancel()
             return
         }
 
@@ -223,16 +229,24 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             it.addressEn.lowercase().contains(q)
         }
         _searchResults.value = localMatches
+        _isSearching.value = true
 
         searchJob?.cancel()
         searchJob = viewModelScope.launch {
-            kotlinx.coroutines.delay(250)
-            val geocodedResults = geocodingHelper.searchPlaces(trimmed, maxResults = 8)
-            if (geocodedResults.isNotEmpty() && _searchQuery.value == query) {
-                val merged = (localMatches + geocodedResults).distinctBy {
-                    "${String.format("%.3f", it.latitude)}_${String.format("%.3f", it.longitude)}"
+            try {
+                kotlinx.coroutines.delay(250)
+                val geocodedResults = geocodingHelper.searchPlaces(trimmed, maxResults = 8)
+                if (_searchQuery.value == query) {
+                    val merged = (localMatches + geocodedResults).distinctBy {
+                        "${String.format(java.util.Locale.US, "%.3f", it.latitude)}_${String.format(java.util.Locale.US, "%.3f", it.longitude)}"
+                    }
+                    _searchResults.value = merged
                 }
-                _searchResults.value = merged
+            } catch (_: Exception) {
+            } finally {
+                if (_searchQuery.value == query) {
+                    _isSearching.value = false
+                }
             }
         }
     }
@@ -531,12 +545,21 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun checkForAppUpdate(checkedManually: Boolean = false) {
-        viewModelScope.launch {
+        if (updateCheckJob?.isActive == true) return
+        updateCheckJob = viewModelScope.launch {
             if (checkedManually) {
                 _updateStatus.value = com.example.data.model.UpdateStatus.Checking
             }
-            val result = updateManager.checkForUpdate(checkedManually = checkedManually)
-            _updateStatus.value = result
+            try {
+                val result = updateManager.checkForUpdate(checkedManually = checkedManually)
+                _updateStatus.value = result
+            } catch (e: Exception) {
+                Log.e("MainViewModel", "Error checking update", e)
+                _updateStatus.value = com.example.data.model.UpdateStatus.Error(
+                    e.localizedMessage ?: "নেটওয়ার্ক সমস্যা",
+                    checkedManually
+                )
+            }
         }
     }
 

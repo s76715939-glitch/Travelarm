@@ -476,25 +476,7 @@ fun InAppUpdateDialog(
         }
 
         is UpdateStatus.Checking -> {
-            Dialog(onDismissRequest = { /* wait */ }) {
-                Surface(
-                    shape = RoundedCornerShape(20.dp),
-                    color = MaterialTheme.colorScheme.surface,
-                    tonalElevation = 6.dp
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 24.dp, vertical = 20.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 3.dp)
-                        Spacer(modifier = Modifier.width(16.dp))
-                        Text(
-                            text = if (language == AppLanguage.BANGLA) "আপডেট খোঁজা হচ্ছে..." else "Checking for updates...",
-                            style = MaterialTheme.typography.bodyMedium
-                        )
-                    }
-                }
-            }
+            // Handled inline inside the update button or in background; no modal dialog needed
         }
 
         UpdateStatus.Idle -> { /* do nothing */ }

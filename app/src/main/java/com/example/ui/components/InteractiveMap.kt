@@ -82,10 +82,12 @@ fun InteractiveMap(
     isNavigating: Boolean = false,
     language: AppLanguage = AppLanguage.BANGLA,
     bottomControlPadding: androidx.compose.ui.unit.Dp = 140.dp,
+    centerOnLocationTrigger: Int = 0,
     onMapTap: (latitude: Double, longitude: Double) -> Unit,
     onSelectDestination: (Destination) -> Unit,
     onDeselectDestination: () -> Unit = {},
-    onRequestCurrentLocation: () -> Unit = {}
+    onRequestCurrentLocation: () -> Unit = {},
+    onMapInteracted: () -> Unit = {}
 ) {
     val context = LocalContext.current
     var mapViewInstance by remember { mutableStateOf<MapView?>(null) }
@@ -98,6 +100,31 @@ fun InteractiveMap(
     }
 
     var isUserPannedAway by remember(isNavigating) { mutableStateOf(false) }
+    var hasCenteredOnInitialLocation by remember { mutableStateOf(false) }
+
+    // Auto-center map on user location when app opens / location becomes available
+    LaunchedEffect(currentLocation, mapViewInstance) {
+        if (!hasCenteredOnInitialLocation && currentLocation != null && mapViewInstance != null) {
+            hasCenteredOnInitialLocation = true
+            mapViewInstance?.controller?.animateTo(
+                GeoPoint(currentLocation.latitude, currentLocation.longitude),
+                15.5,
+                900L
+            )
+        }
+    }
+
+    // Re-center when bottom navigation Map tab is clicked
+    LaunchedEffect(centerOnLocationTrigger) {
+        if (centerOnLocationTrigger > 0 && currentLocation != null && mapViewInstance != null) {
+            mapViewInstance?.controller?.animateTo(
+                GeoPoint(currentLocation.latitude, currentLocation.longitude),
+                15.5,
+                900L
+            )
+            locationToastVisible = true
+        }
+    }
 
     LaunchedEffect(currentLocation, isNavigating, isUserPannedAway, mapViewInstance) {
         if (currentLocation != null) {
@@ -188,7 +215,8 @@ fun InteractiveMap(
 
                     val initialLat = currentLocation?.latitude ?: 23.7779
                     val initialLng = currentLocation?.longitude ?: 90.3475
-                    controller.setZoom(13.5)
+                    val initialZoom = if (currentLocation != null) 15.5 else 13.5
+                    controller.setZoom(initialZoom)
                     controller.setCenter(GeoPoint(initialLat, initialLng))
 
                     val mapEventsOverlay = MapEventsOverlay(object : MapEventsReceiver {
@@ -205,6 +233,7 @@ fun InteractiveMap(
 
                     mapViewInstance = this
                     setOnTouchListener { _, event ->
+                        onMapInteracted()
                         if (event.action == android.view.MotionEvent.ACTION_MOVE || event.action == android.view.MotionEvent.ACTION_POINTER_DOWN) {
                             if (isNavigating) {
                                 isUserPannedAway = true
@@ -366,6 +395,7 @@ fun InteractiveMap(
             ) {
                 FloatingActionButton(
                     onClick = {
+                        onMapInteracted()
                         useTopoTile = !useTopoTile
                         mapViewInstance?.setTileSource(
                             if (useTopoTile) TileSourceFactory.OpenTopo else TileSourceFactory.MAPNIK
@@ -388,7 +418,10 @@ fun InteractiveMap(
                 ) {
                     Column {
                         IconButton(
-                            onClick = { mapViewInstance?.controller?.zoomIn() },
+                            onClick = {
+                                onMapInteracted()
+                                mapViewInstance?.controller?.zoomIn()
+                            },
                             modifier = Modifier
                                 .size(44.dp)
                                 .testTag("zoom_in_button")
@@ -396,7 +429,10 @@ fun InteractiveMap(
                             Icon(Icons.Default.Add, contentDescription = "Zoom In")
                         }
                         IconButton(
-                            onClick = { mapViewInstance?.controller?.zoomOut() },
+                            onClick = {
+                                onMapInteracted()
+                                mapViewInstance?.controller?.zoomOut()
+                            },
                             modifier = Modifier
                                 .size(44.dp)
                                 .testTag("zoom_out_button")
@@ -408,6 +444,7 @@ fun InteractiveMap(
 
                 FloatingActionButton(
                     onClick = {
+                        onMapInteracted()
                         onRequestCurrentLocation()
                         if (currentLocation != null) {
                             mapViewInstance?.controller?.animateTo(

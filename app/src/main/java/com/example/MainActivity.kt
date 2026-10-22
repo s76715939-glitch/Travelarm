@@ -23,6 +23,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -136,12 +137,14 @@ fun MainAppContent(viewModel: MainViewModel) {
     val isNetworkAvailable by viewModel.isNetworkAvailable.collectAsStateWithLifecycle()
     val systemSounds by viewModel.systemSounds.collectAsStateWithLifecycle()
     val updateStatus by viewModel.updateStatus.collectAsStateWithLifecycle()
+    val isSearching by viewModel.isSearching.collectAsStateWithLifecycle()
 
     var isBatteryOptimizationIgnored by remember {
         mutableStateOf(BatteryOptimizationHelper.isIgnoringBatteryOptimizations(context))
     }
     var userDismissedBatteryPopup by rememberSaveable { mutableStateOf(false) }
     var showWelcomeScreen by rememberSaveable { mutableStateOf(true) }
+    var centerOnLocationTrigger by remember { mutableIntStateOf(0) }
 
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
@@ -253,6 +256,8 @@ fun MainAppContent(viewModel: MainViewModel) {
                         language = language,
                         routeData = routeData,
                         isNetworkAvailable = isNetworkAvailable,
+                        isSearching = isSearching,
+                        centerOnLocationTrigger = centerOnLocationTrigger,
                         showBatteryOptimizationPopup = !isBatteryOptimizationIgnored && !userDismissedBatteryPopup,
                         onDismissBatteryPopup = {
                             userDismissedBatteryPopup = true
@@ -296,6 +301,7 @@ fun MainAppContent(viewModel: MainViewModel) {
                         onRequestBatteryOptimization = {
                             BatteryOptimizationHelper.requestIgnoreBatteryOptimization(context)
                         },
+                        isCheckingUpdate = updateStatus is com.example.data.model.UpdateStatus.Checking,
                         onCheckForUpdates = {
                             viewModel.checkForAppUpdate(checkedManually = true)
                         }
@@ -345,7 +351,13 @@ fun MainAppContent(viewModel: MainViewModel) {
                     ProfessionalBottomBar(
                         currentTab = currentTab,
                         language = language,
-                        onTabSelected = { currentTab = it }
+                        onTabSelected = { selectedTab ->
+                            if (selectedTab == MainTab.MAP) {
+                                centerOnLocationTrigger++
+                                viewModel.fetchCurrentDeviceLocation(context)
+                            }
+                            currentTab = selectedTab
+                        }
                     )
                 }
             }

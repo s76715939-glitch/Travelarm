@@ -39,6 +39,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
@@ -84,6 +85,7 @@ fun SettingsScreen(
     onTestAlarm: () -> Unit,
     onStopTestAlarm: () -> Unit,
     onRequestBatteryOptimization: () -> Unit = {},
+    isCheckingUpdate: Boolean = false,
     onCheckForUpdates: () -> Unit = {}
 ) {
     val context = LocalContext.current
@@ -589,22 +591,36 @@ fun SettingsScreen(
 
                 OutlinedButton(
                     onClick = onCheckForUpdates,
+                    enabled = !isCheckingUpdate,
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(48.dp)
                         .testTag("check_updates_button"),
                     shape = RoundedCornerShape(12.dp)
                 ) {
-                    Icon(
-                        Icons.Default.SystemUpdate,
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = if (language == AppLanguage.BANGLA) "আপডেট চেক করুন" else "Check for Updates",
-                        fontWeight = FontWeight.Bold
-                    )
+                    if (isCheckingUpdate) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(18.dp),
+                            strokeWidth = 2.5.dp,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = if (language == AppLanguage.BANGLA) "আপডেট খোঁজা হচ্ছে..." else "Checking for Updates...",
+                            fontWeight = FontWeight.Bold
+                        )
+                    } else {
+                        Icon(
+                            Icons.Default.SystemUpdate,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = if (language == AppLanguage.BANGLA) "আপডেট চেক করুন" else "Check for Updates",
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
                 }
             }
         }

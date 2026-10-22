@@ -362,11 +362,11 @@ fun DestinationConfirmSheet(
                 onClick = { onStartJourney(useSimulator) },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(58.dp)
+                    .height(52.dp)
                     .testTag("start_journey_button"),
-                shape = RoundedCornerShape(18.dp),
+                shape = RoundedCornerShape(14.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
-                elevation = ButtonDefaults.buttonElevation(4.dp)
+                elevation = ButtonDefaults.buttonElevation(3.dp)
             ) {
                 Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(24.dp))
                 Spacer(modifier = Modifier.width(8.dp))
