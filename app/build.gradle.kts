@@ -4,6 +4,7 @@ plugins {
   alias(libs.plugins.android.application)
   alias(libs.plugins.kotlin.compose)
   alias(libs.plugins.google.devtools.ksp)
+  alias(libs.plugins.secrets)
   alias(libs.plugins.google.services)
 }
 
@@ -66,6 +67,11 @@ android {
     includeInApk = false
     includeInBundle = true
   }
+}
+
+// Configure the Secrets Gradle Plugin.
+secrets {
+  ignoreList.add("FIREBASE_APPCHECK_DEBUG_TOKEN")
 }
 
 googleServices { missingGoogleServicesStrategy = MissingGoogleServicesStrategy.WARN }

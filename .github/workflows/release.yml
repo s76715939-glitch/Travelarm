@@ -20,12 +20,15 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
+      - name: Create local.properties
+        run: touch local.properties
+
       - name: Decode Keystore
         run: |
           echo "${{ secrets.RELEASE_KEYSTORE_BASE64 }}" | base64 -d > my-release-key.jks
 
       - name: Build with Gradle
-        run: gradle :app:assembleRelease :app:bundleRelease --no-daemon -Djava.awt.headless=true
+        run: gradle :app:assembleRelease :app:bundleRelease --no-daemon
         env:
           STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
@@ -57,3 +60,11 @@ jobs:
             app/build/outputs/bundle/release/travelarm-release.aab
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload Artifacts Backup
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-artifacts
+          path: |
+            app/build/outputs/apk/release/travelarm-release.apk
+            app/build/outputs/bundle/release/travelarm-release.aab
