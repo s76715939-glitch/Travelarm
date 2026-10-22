@@ -150,7 +150,7 @@ fun SettingsScreen(
             .verticalScroll(rememberScrollState())
     ) {
         Text(
-            text = if (language == AppLanguage.BANGLA) "সেটিংস ও পছন্দ" else "Settings & Preferences",
+            text = if (language == AppLanguage.BANGLA) "সেটিংস" else "Settings & Preferences",
             style = MaterialTheme.typography.headlineSmall,
             fontWeight = FontWeight.Bold
         )
