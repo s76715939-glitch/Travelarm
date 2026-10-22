@@ -15,6 +15,8 @@ jobs:
         with:
           java-version: '17'
           distribution: 'temurin'
+      - name: Create local.properties
+        run: touch local.properties
       - name: Decode Keystore
         run: |
           echo "${{ secrets.RELEASE_KEYSTORE_BASE64 }}" | base64 -d > my-release-key.jks
