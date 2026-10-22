@@ -637,7 +637,10 @@ fun SettingsScreen(
                         fontWeight = FontWeight.Bold
                     )
                     Text(
-                        text = if (language == AppLanguage.BANGLA) "স্মার্ট ট্রাভেল অ্যালার্ম • সংস্করণ ১.০" else "Smart Travel Alarm • Version 1.0",
+                        text = if (language == AppLanguage.BANGLA)
+                            "স্মার্ট ট্রাভেল অ্যালার্ম • সংস্করণ ${com.example.engine.GeoUtils.toBengaliDigits(BuildConfig.VERSION_NAME)}"
+                        else
+                            "Smart Travel Alarm • Version ${BuildConfig.VERSION_NAME}",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )

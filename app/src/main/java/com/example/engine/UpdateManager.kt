@@ -61,7 +61,9 @@ class UpdateManager(private val context: Context) {
             val latestVersionCode = json.optInt("latestVersionCode", BuildConfig.VERSION_CODE)
             val latestVersionName = json.optString("latestVersionName", BuildConfig.VERSION_NAME)
             val apkUrl = json.optString("apkUrl", "")
-            val releaseNotes = json.optString("releaseNotes", "নতুন সংস্করণ উপলব্ধ।")
+            val defaultNotes = json.optString("releaseNotes", "নতুন সংস্করণ উপলব্ধ। / New version available.")
+            val releaseNotesBn = json.optString("releaseNotesBn", defaultNotes)
+            val releaseNotesEn = json.optString("releaseNotesEn", defaultNotes)
             val forceUpdate = json.optBoolean("forceUpdate", false)
 
             val currentVersionCode = BuildConfig.VERSION_CODE
@@ -72,7 +74,8 @@ class UpdateManager(private val context: Context) {
                     latestVersionCode = latestVersionCode,
                     latestVersionName = latestVersionName,
                     apkUrl = apkUrl,
-                    releaseNotes = releaseNotes,
+                    releaseNotesBn = releaseNotesBn,
+                    releaseNotesEn = releaseNotesEn,
                     forceUpdate = forceUpdate
                 )
                 UpdateStatus.UpdateAvailable(updateInfo)

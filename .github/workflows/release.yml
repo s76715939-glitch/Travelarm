@@ -4,12 +4,23 @@ on:
   push:
     branches:
       - main
+    paths:
+      - 'app/**'
+      - 'gradle/**'
+      - 'build.gradle.kts'
+      - 'settings.gradle.kts'
+      - 'gradle.properties'
+  workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+
+    env:
+      JAVA_TOOL_OPTIONS: "-Djava.awt.headless=true"
+      GRADLE_OPTS: "-Djava.awt.headless=true"
 
     steps:
       - uses: actions/checkout@v4
@@ -40,7 +51,7 @@ jobs:
         id: version_info
         run: |
           VERSION=$(jq -r '.latestVersionName' version.json)
-          NOTES=$(jq -r '.releaseNotes' version.json)
+          NOTES=$(jq -r '.releaseNotesBn // .releaseNotesEn // .releaseNotes' version.json)
           echo "APP_VERSION=$VERSION" >> $GITHUB_ENV
           echo "RELEASE_NOTES=$NOTES" >> $GITHUB_ENV
 
