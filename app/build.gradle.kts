@@ -71,7 +71,6 @@ android {
 
 // Configure the Secrets Gradle Plugin.
 secrets {
-  propertiesFileName = ".env"
   ignoreList.add("FIREBASE_APPCHECK_DEBUG_TOKEN")
 }
 
