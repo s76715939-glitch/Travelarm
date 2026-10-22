@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Travelarm</string>
+    <string name="app_tagline">Smart Travel Alarm for Transit Passengers</string>
+    <string name="notification_channel_name">Travel Tracking Channel</string>
+    <string name="notification_channel_desc">Shows ongoing distance and location updates during travel</string>
+    <string name="alarm_channel_name">Destination Arrival Alarm</string>
+    <string name="alarm_channel_desc">Plays urgent alert when approaching destination</string>
+</resources>
