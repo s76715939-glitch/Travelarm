@@ -48,11 +48,16 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val simulator = JourneySimulator()
     private val geocodingHelper = GeocodingHelper(application)
     private val osrmRoutingService = com.example.engine.OsrmRoutingService()
+    private val updateManager = com.example.engine.UpdateManager(application)
     private var searchJob: Job? = null
     private var routeFetchJob: Job? = null
+    private var downloadJob: Job? = null
     private val testAlarmEngine: AlarmEngine by lazy { AlarmEngine(application) }
 
     val journeyState: StateFlow<ActiveJourneyState> = LocationForegroundService.journeyState
+
+    private val _updateStatus = MutableStateFlow<com.example.data.model.UpdateStatus>(com.example.data.model.UpdateStatus.Idle)
+    val updateStatus: StateFlow<com.example.data.model.UpdateStatus> = _updateStatus.asStateFlow()
 
     private val _routeData = MutableStateFlow<com.example.data.model.RouteData?>(null)
     val routeData: StateFlow<com.example.data.model.RouteData?> = _routeData.asStateFlow()
@@ -126,12 +131,16 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 manager.setType(android.media.RingtoneManager.TYPE_ALL)
                 val cursor = manager.cursor
                 val list = mutableListOf<Pair<String, String>>()
-                while (cursor.moveToNext()) {
-                    val title = cursor.getString(android.media.RingtoneManager.TITLE_COLUMN_INDEX)
-                    val uri = manager.getRingtoneUri(cursor.position)
-                    if (title != null && uri != null) {
-                        list.add(Pair(title, uri.toString()))
+                try {
+                    while (cursor != null && cursor.moveToNext()) {
+                        val title = cursor.getString(android.media.RingtoneManager.TITLE_COLUMN_INDEX)
+                        val uri = manager.getRingtoneUri(cursor.position)
+                        if (title != null && uri != null) {
+                            list.add(Pair(title, uri.toString()))
+                        }
                     }
+                } finally {
+                    try { cursor?.close() } catch (_: Exception) {}
                 }
                 if (list.isNotEmpty()) {
                     _systemSounds.value = list
@@ -142,6 +151,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
 
         observeNetworkConnectivity()
+        checkForAppUpdate(checkedManually = false)
 
         viewModelScope.launch {
             simulator.simulatedLocation.collect { simLoc ->
@@ -518,5 +528,36 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             repository.clearHistory()
         }
+    }
+
+    fun checkForAppUpdate(checkedManually: Boolean = false) {
+        viewModelScope.launch {
+            if (checkedManually) {
+                _updateStatus.value = com.example.data.model.UpdateStatus.Checking
+            }
+            val result = updateManager.checkForUpdate(checkedManually = checkedManually)
+            _updateStatus.value = result
+        }
+    }
+
+    fun startUpdateDownload(apkUrl: String) {
+        downloadJob?.cancel()
+        downloadJob = viewModelScope.launch {
+            updateManager.downloadApk(apkUrl).collect { status ->
+                _updateStatus.value = status
+                if (status is com.example.data.model.UpdateStatus.DownloadCompleted) {
+                    updateManager.installApk(status.apkFile)
+                }
+            }
+        }
+    }
+
+    fun installDownloadedApk(apkFile: java.io.File) {
+        updateManager.installApk(apkFile)
+    }
+
+    fun dismissUpdateDialog() {
+        downloadJob?.cancel()
+        _updateStatus.value = com.example.data.model.UpdateStatus.Idle
     }
 }

@@ -135,6 +135,7 @@ fun MainAppContent(viewModel: MainViewModel) {
     val isOnboardingCompleted by viewModel.isOnboardingCompleted.collectAsStateWithLifecycle()
     val isNetworkAvailable by viewModel.isNetworkAvailable.collectAsStateWithLifecycle()
     val systemSounds by viewModel.systemSounds.collectAsStateWithLifecycle()
+    val updateStatus by viewModel.updateStatus.collectAsStateWithLifecycle()
 
     var isBatteryOptimizationIgnored by remember {
         mutableStateOf(BatteryOptimizationHelper.isIgnoringBatteryOptimizations(context))
@@ -294,6 +295,9 @@ fun MainAppContent(viewModel: MainViewModel) {
                         onStopTestAlarm = { viewModel.stopEmergencyAlarmTest() },
                         onRequestBatteryOptimization = {
                             BatteryOptimizationHelper.requestIgnoreBatteryOptimization(context)
+                        },
+                        onCheckForUpdates = {
+                            viewModel.checkForAppUpdate(checkedManually = true)
                         }
                     )
                 }
@@ -320,6 +324,15 @@ fun MainAppContent(viewModel: MainViewModel) {
                     onConfirm = { viewModel.completeOnboarding() }
                 )
             }
+
+            com.example.ui.components.InAppUpdateDialog(
+                status = updateStatus,
+                language = language,
+                onStartDownload = { url -> viewModel.startUpdateDownload(url) },
+                onInstall = { file -> viewModel.installDownloadedApk(file) },
+                onDismiss = { viewModel.dismissUpdateDialog() },
+                onRetryCheck = { viewModel.checkForAppUpdate(checkedManually = true) }
+            )
 
             if (journeyState.status != JourneyStatus.TRACKING && 
                 journeyState.status != JourneyStatus.ALARM_TRIGGERED &&
