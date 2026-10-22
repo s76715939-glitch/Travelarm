@@ -21,15 +21,19 @@ jobs:
         run: |
           echo "${{ secrets.RELEASE_KEYSTORE_BASE64 }}" | base64 -d > my-release-key.jks
       - name: Build with Gradle
-        run: gradle :app:assembleRelease :app:bundleRelease
+        run: gradle :app:assembleRelease :app:bundleRelease --no-daemon
         env:
           STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+      - name: Rename Artifacts
+        run: |
+          mv app/build/outputs/apk/release/app-release.apk app/build/outputs/apk/release/travelarm-release.apk
+          mv app/build/outputs/bundle/release/app-release.aab app/build/outputs/bundle/release/travelarm-release.aab
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: release-artifacts
           path: |
-            app/build/outputs/apk/release/*.apk
-            app/build/outputs/bundle/release/*.aab
+            app/build/outputs/apk/release/travelarm-release.apk
+            app/build/outputs/bundle/release/travelarm-release.aab

@@ -139,3 +139,7 @@ dependencies {
   "ksp"(libs.androidx.room.compiler)
   "ksp"(libs.moshi.kotlin.codegen)
 }
+
+ksp {
+  arg("ksp.incremental", "true")
+}
