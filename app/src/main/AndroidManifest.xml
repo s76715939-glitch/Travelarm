@@ -33,7 +33,7 @@
         android:theme="@style/Theme.MyApplication">
 
         <activity
-            android:name="com.example.MainActivity"
+            android:name="com.sstechzone.travelarm.MainActivity"
             android:exported="true"
             android:launchMode="singleTop"
             android:showWhenLocked="true"
@@ -45,7 +45,7 @@
         </activity>
 
         <service
-            android:name="com.example.service.LocationForegroundService"
+            android:name="com.sstechzone.travelarm.service.LocationForegroundService"
             android:enabled="true"
             android:exported="false"
             android:foregroundServiceType="location"

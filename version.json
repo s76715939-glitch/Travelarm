@@ -1,8 +1,8 @@
 {
-  "latestVersionCode": 2,
-  "latestVersionName": "1.0.1",
+  "latestVersionCode": 1,
+  "latestVersionName": "1.0.0",
   "apkUrl": "https://travelarm.onrender.com/download",
-  "releaseNotesBn": "Travelarm এর টেস্টিং করুন, আর উপভোগ করুন",
-  "releaseNotesEn": "Test Travelarm, and enjoy",
+  "releaseNotesBn": "Travelarm এর ইনিশিয়াল রিলিজ",
+  "releaseNotesEn": "Initial Release Of Travelarm",
   "forceUpdate": true
 }
