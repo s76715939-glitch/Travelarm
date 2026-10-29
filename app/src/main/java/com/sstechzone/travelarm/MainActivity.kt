@@ -42,6 +42,12 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.animation.*
+import androidx.compose.animation.core.tween
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import com.sstechzone.travelarm.data.model.AppLanguage
 import com.sstechzone.travelarm.data.model.JourneyStatus
 import com.sstechzone.travelarm.data.model.LocationReading
@@ -58,10 +64,11 @@ import com.sstechzone.travelarm.ui.theme.MyApplicationTheme
 import com.sstechzone.travelarm.ui.viewmodel.MainViewModel
 import com.sstechzone.travelarm.util.BatteryOptimizationHelper
 import com.google.android.gms.location.LocationServices
+import kotlinx.coroutines.launch
 
 enum class MainTab {
-    MAP,
     HISTORY,
+    MAP,
     SETTINGS
 }
 
@@ -123,7 +130,13 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun MainAppContent(viewModel: MainViewModel) {
     val context = LocalContext.current
-    var currentTab by remember { mutableStateOf(MainTab.MAP) }
+    val tabs = remember { listOf(MainTab.HISTORY, MainTab.MAP, MainTab.SETTINGS) }
+    val pagerState = androidx.compose.foundation.pager.rememberPagerState(
+        initialPage = 1, // Start on Map tab
+        pageCount = { tabs.size }
+    )
+    val currentTab = tabs[pagerState.currentPage]
+    val coroutineScope = androidx.compose.runtime.rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
 
     val journeyState by viewModel.journeyState.collectAsStateWithLifecycle()
@@ -145,6 +158,23 @@ fun MainAppContent(viewModel: MainViewModel) {
     val systemSounds by viewModel.systemSounds.collectAsStateWithLifecycle()
     val updateStatus by viewModel.updateStatus.collectAsStateWithLifecycle()
     val isSearching by viewModel.isSearching.collectAsStateWithLifecycle()
+    
+    // Connection to strictly block manual horizontal swiping on the pager
+    val blockHorizontalScrollConnection = remember {
+        object : NestedScrollConnection {
+            override fun onPreScroll(
+                available: Offset,
+                source: NestedScrollSource
+            ): Offset {
+                return if (source == NestedScrollSource.UserInput) {
+                    // Consume horizontal scroll to block manual swiping
+                    Offset(x = available.x, y = 0f)
+                } else {
+                    Offset.Zero
+                }
+            }
+        }
+    }
 
     var isBatteryOptimizationIgnored by remember {
         mutableStateOf(BatteryOptimizationHelper.isIgnoringBatteryOptimizations(context))
@@ -254,88 +284,107 @@ fun MainAppContent(viewModel: MainViewModel) {
                 .fillMaxSize()
                 .padding(top = innerPadding.calculateTopPadding())
         ) {
-            when {
-                journeyState.status == JourneyStatus.TRACKING || journeyState.status == JourneyStatus.ALARM_SNOOZED -> {
-                    ActiveJourneyScreen(
-                        journeyState = journeyState,
-                        language = language,
-                        mapType = mapType,
-                        onMapTypeChange = { viewModel.setMapType(it) },
-                        onEndJourney = { viewModel.stopJourney(context) },
-                        onFastForwardSimulator = { viewModel.jumpSimulatorNearThreshold() },
-                        onDismissAlarm = { viewModel.dismissAlarm(context) }
-                    )
-                }
-
-                currentTab == MainTab.MAP -> {
-                    HomeScreen(
-                        currentLocation = userLocation,
-                        selectedDestination = selectedDestination,
-                        thresholdMeters = alarmConfig.thresholdMeters,
-                        searchQuery = searchQuery,
-                        searchResults = searchResults,
-                        recentJourneys = recentJourneys,
-                        language = language,
-                        mapType = mapType,
-                        onMapTypeChange = { viewModel.setMapType(it) },
-                        routeData = routeData,
-                        isNetworkAvailable = isNetworkAvailable,
-                        isSearching = isSearching,
-                        centerOnLocationTrigger = centerOnLocationTrigger,
-                        showBatteryOptimizationPopup = !isBatteryOptimizationIgnored && !userDismissedBatteryPopup,
-                        onDismissBatteryPopup = {
-                            userDismissedBatteryPopup = true
-                        },
-                        onRequestBatteryOptimization = {
-                            BatteryOptimizationHelper.requestIgnoreBatteryOptimization(context)
-                        },
-                        onSearchQueryChange = { viewModel.onSearchQueryChanged(it) },
-                        onDestinationSelect = { viewModel.selectDestination(it) },
-                        onDeselectDestination = { viewModel.deselectDestination() },
-                        onMapTap = { lat, lng -> viewModel.selectDestinationFromCoordinates(lat, lng) },
-                        onOpenConfirmSheet = {
-                            viewModel.openConfirmSheet()
-                        },
-                        onRequestCurrentLocation = {
-                            viewModel.fetchCurrentDeviceLocation(context)
+            androidx.compose.foundation.pager.HorizontalPager(
+                state = pagerState,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .nestedScroll(blockHorizontalScrollConnection),
+                userScrollEnabled = false, // Manually disabled
+                beyondViewportPageCount = 1,
+                key = { pageIndex -> tabs[pageIndex] }
+            ) { pageIndex ->
+                val targetTab = tabs[pageIndex]
+                when {
+                    journeyState.status == JourneyStatus.TRACKING || journeyState.status == JourneyStatus.ALARM_SNOOZED -> {
+                        // When tracking, show the active journey screen on top or inside the pager
+                        // We show it only if the current page is the map page or we force it
+                        // To keep it simple and fulfill the "wrapping content screens" request:
+                        if (targetTab == MainTab.MAP) {
+                            ActiveJourneyScreen(
+                                journeyState = journeyState,
+                                language = language,
+                                mapType = mapType,
+                                onMapTypeChange = { viewModel.setMapType(it) },
+                                onEndJourney = { viewModel.stopJourney(context) },
+                                onFastForwardSimulator = { viewModel.jumpSimulatorNearThreshold() },
+                                onDismissAlarm = { viewModel.dismissAlarm(context) }
+                            )
+                        } else {
+                            // Empty or placeholder for other pages during tracking if needed
+                            Box(Modifier.fillMaxSize())
                         }
-                    )
-                }
+                    }
 
-                currentTab == MainTab.HISTORY -> {
-                    HistoryScreen(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(bottom = bottomNavHeight),
-                        journeys = journeyHistory,
-                        language = language,
-                        onDeleteJourney = { viewModel.deleteJourneyRecord(it) },
-                        onClearAll = { viewModel.clearAllHistory() }
-                    )
-                }
+                    targetTab == MainTab.MAP -> {
+                        HomeScreen(
+                            currentLocation = userLocation,
+                            selectedDestination = selectedDestination,
+                            thresholdMeters = alarmConfig.thresholdMeters,
+                            searchQuery = searchQuery,
+                            searchResults = searchResults,
+                            recentJourneys = recentJourneys,
+                            language = language,
+                            mapType = mapType,
+                            onMapTypeChange = { viewModel.setMapType(it) },
+                            routeData = routeData,
+                            isNetworkAvailable = isNetworkAvailable,
+                            isSearching = isSearching,
+                            centerOnLocationTrigger = centerOnLocationTrigger,
+                            showBatteryOptimizationPopup = !isBatteryOptimizationIgnored && !userDismissedBatteryPopup,
+                            onDismissBatteryPopup = {
+                                userDismissedBatteryPopup = true
+                            },
+                            onRequestBatteryOptimization = {
+                                BatteryOptimizationHelper.requestIgnoreBatteryOptimization(context)
+                            },
+                            onSearchQueryChange = { viewModel.onSearchQueryChanged(it) },
+                            onDestinationSelect = { viewModel.selectDestination(it) },
+                            onDeselectDestination = { viewModel.deselectDestination() },
+                            onMapTap = { lat, lng -> viewModel.selectDestinationFromCoordinates(lat, lng) },
+                            onOpenConfirmSheet = {
+                                viewModel.openConfirmSheet()
+                            },
+                            onRequestCurrentLocation = {
+                                viewModel.fetchCurrentDeviceLocation(context)
+                            }
+                        )
+                    }
 
-                currentTab == MainTab.SETTINGS -> {
-                    SettingsScreen(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(bottom = bottomNavHeight),
-                        language = language,
-                        alarmConfig = alarmConfig,
-                        isTestingAlarm = isTestingAlarm,
-                        isBatteryOptimizationIgnored = isBatteryOptimizationIgnored,
-                        systemSounds = systemSounds,
-                        onLanguageChange = { viewModel.setLanguage(it) },
-                        onAlarmConfigChange = { viewModel.updateAlarmConfig(it) },
-                        onTestAlarm = { viewModel.testEmergencyAlarm() },
-                        onStopTestAlarm = { viewModel.stopEmergencyAlarmTest() },
-                        onRequestBatteryOptimization = {
-                            BatteryOptimizationHelper.requestIgnoreBatteryOptimization(context)
-                        },
-                        isCheckingUpdate = updateStatus is com.sstechzone.travelarm.data.model.UpdateStatus.Checking,
-                        onCheckForUpdates = {
-                            viewModel.checkForAppUpdate(checkedManually = true)
-                        }
-                    )
+                    targetTab == MainTab.HISTORY -> {
+                        HistoryScreen(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(bottom = bottomNavHeight),
+                            journeys = journeyHistory,
+                            language = language,
+                            onDeleteJourney = { viewModel.deleteJourneyRecord(it) },
+                            onClearAll = { viewModel.clearAllHistory() }
+                        )
+                    }
+
+                    targetTab == MainTab.SETTINGS -> {
+                        SettingsScreen(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(bottom = bottomNavHeight),
+                            language = language,
+                            alarmConfig = alarmConfig,
+                            isTestingAlarm = isTestingAlarm,
+                            isBatteryOptimizationIgnored = isBatteryOptimizationIgnored,
+                            systemSounds = systemSounds,
+                            onLanguageChange = { viewModel.setLanguage(it) },
+                            onAlarmConfigChange = { viewModel.updateAlarmConfig(it) },
+                            onTestAlarm = { viewModel.testEmergencyAlarm() },
+                            onStopTestAlarm = { viewModel.stopEmergencyAlarmTest() },
+                            onRequestBatteryOptimization = {
+                                BatteryOptimizationHelper.requestIgnoreBatteryOptimization(context)
+                            },
+                            isCheckingUpdate = updateStatus is com.sstechzone.travelarm.data.model.UpdateStatus.Checking,
+                            onCheckForUpdates = {
+                                viewModel.checkForAppUpdate(checkedManually = true)
+                            }
+                        )
+                    }
                 }
             }
 
@@ -392,7 +441,9 @@ fun MainAppContent(viewModel: MainViewModel) {
                                 centerOnLocationTrigger++
                                 viewModel.fetchCurrentDeviceLocation(context)
                             }
-                            currentTab = selectedTab
+                            coroutineScope.launch {
+                                pagerState.animateScrollToPage(tabs.indexOf(selectedTab))
+                            }
                         }
                     )
                 }
