@@ -12,8 +12,8 @@ android {
     applicationId = "com.sstechzone.travelarm"
     minSdk = 24
     targetSdk = 36
-    versionCode = 2
-    versionName = "1.0.1"
+    versionCode = 1
+    versionName = "1.0.0"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
@@ -22,9 +22,9 @@ android {
   // and updating Android apps in AI Studio.
   signingConfigs {
     create("release") {
-      storeFile = file("${rootDir}/my-release-key.jks")
+      storeFile = file("${rootDir}/ss-tech-zone-key.jks")
       storePassword = System.getenv("STORE_PASSWORD")
-      keyAlias = System.getenv("KEY_ALIAS") ?: "sagormia"
+      keyAlias = System.getenv("KEY_ALIAS")"
       keyPassword = System.getenv("KEY_PASSWORD")
     }
     create("debugConfig") {

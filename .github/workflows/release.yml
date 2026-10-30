@@ -33,7 +33,7 @@ jobs:
 
       - name: Decode Keystore
         run: |
-          echo "${{ secrets.RELEASE_KEYSTORE_BASE64 }}" | base64 -d > my-release-key.jks
+          echo "${{ secrets.RELEASE_KEYSTORE_BASE64 }}" | base64 -d > ss-tech-zone-key.jks
 
       - name: Build with Gradle
         run: gradle :app:assembleRelease :app:bundleRelease --no-daemon -Djava.awt.headless=true
