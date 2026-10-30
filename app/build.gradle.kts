@@ -24,7 +24,7 @@ android {
     create("release") {
       storeFile = file("${rootDir}/ss-tech-zone-key.jks")
       storePassword = System.getenv("STORE_PASSWORD")
-      keyAlias = System.getenv("KEY_ALIAS")"
+      keyAlias = System.getenv("KEY_ALIAS")
       keyPassword = System.getenv("KEY_PASSWORD")
     }
     create("debugConfig") {
